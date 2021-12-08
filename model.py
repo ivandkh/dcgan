@@ -106,7 +106,7 @@ class GAN(tl.LightningModule):
         return a
     
     def adversarial_loss(self, pred, target):
-        return F.binary_cross_entropy(y_hat, y)
+        return F.binary_cross_entropy(pred, target)
     
     def training_step(self, batch, batch_idx, optimizer_idx):
         
@@ -120,7 +120,7 @@ class GAN(tl.LightningModule):
             grid = make_grid(sample)
             self.logger.experiment.add_image("generated_images", grid, 0)
 
-            target = torch.ones(real_imgs.size(0), 1).type_as(real_imgs)
+            target = torch.ones(real_imgs.size(0), 1, 1, 1).type_as(real_imgs)
             lossG = self.adversarial_loss(self.discriminator(self.fake_images), target)
 
             tqdm_dict = {"lossG": lossG}
@@ -128,15 +128,15 @@ class GAN(tl.LightningModule):
 
         #discriminator step
         if optimizer_idx == 1:
-            target_real = torch.ones(real_imgs.size(0), 1).type_as(real_imgs)
+            target_real = torch.ones(real_imgs.size(0), 1, 1, 1).type_as(real_imgs)
             lossD_fake = self.adversarial_loss(self.discriminator(real_imgs), target_real)
 
-            target_fake = torch.zeros(real_imgs.size(0), 1).type_as(real_imgs)
+            target_fake = torch.zeros(real_imgs.size(0), 1, 1, 1).type_as(real_imgs)
             fake_imgs = self(noise).detach()
             lossD_real = self.adversarial_loss(self.discriminator(fake_imgs), target_fake)
 
             lossD = (lossD_real + lossD_fake) /2
-            tqdm_dict = {"d_loss": d_loss}
+            tqdm_dict = {"lossD": lossD}
 
             return {"loss": lossD, "pbar": tqdm_dict, "log": tqdm_dict}
 
