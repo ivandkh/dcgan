@@ -85,9 +85,20 @@ class GAN(tl.LightningModule):
         
         self.generator = Generator(self.hparams.latent_dim, img_shape)
         self.discriminator = Discriminator()
+
+        self.weights_init(self.generator)
+        self.weights_init(self.discriminator)
         
         self.validation_z = torch.randn(8, self.hparams.latent_dim)
         self.example_input_array = torch.zeros(2, self.hparams.latent_dim)
+
+    def weights_init(self, m):
+        classname = m.__class__.__name__
+        if 'Conv' in classname:
+            nn.init.normal_(m.weight.data, 0.0, 0.02)
+        elif "BatchNorm" in classname:
+            nn.init.normal_(m.weight.data, 1.0, 0.02)
+            nn.init.constant_(m.bias.data, 0)
         
     def forward(self, z):
         return self.generator(z)
