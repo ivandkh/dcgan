@@ -32,7 +32,7 @@ class Discriminator(nn.Module):
         )
         
     def forward(self, img):
-        return self.model(img.view(img.size[0], -1))
+        return self.model(img.view(img.size(0), -1))
     
     
 class Generator(nn.Module):
@@ -89,8 +89,9 @@ class GAN(tl.LightningModule):
         self.weights_init(self.generator)
         self.weights_init(self.discriminator)
         
-        self.validation_z = torch.randn(8, self.hparams.latent_dim)
-        self.example_input_array = torch.zeros(2, self.hparams.latent_dim)
+        self.validation_z = torch.randn(8, self.hparams.latent_dim, 1, 1)
+        self.example_input_array = torch.zeros(2, self.hparams.latent_dim, 1, 1)
+
 
     def weights_init(self, m):
         classname = m.__class__.__name__
@@ -101,20 +102,22 @@ class GAN(tl.LightningModule):
             nn.init.constant_(m.bias.data, 0)
         
     def forward(self, z):
-        return self.generator(z)
+        a = self.generator(z)
+        return a
     
     def adversarial_loss(self, pred, target):
         return F.binary_cross_entropy(y_hat, y)
     
     def training_step(self, batch, batch_idx, optimizer_idx):
+        
         real_imgs, _ = batch
-        noise = torch.randn(real_imgs.shape[0], self.hparams.latent_dim).type_as(real_imgs)
+        noise = torch.randn(real_imgs.shape[0], self.hparams.latent_dim, 1, 1).type_as(real_imgs)
 
         #generator step
         if optimizer_idx == 0:
             self.fake_images = self(noise)
             sample = self.fake_images[:4]
-            grid = torchvision.utils.make_grid(sample)
+            grid = make_grid(sample)
             self.logger.experiment.add_image("generated_images", grid, 0)
 
             target = torch.ones(real_imgs.size(0), 1).type_as(real_imgs)
