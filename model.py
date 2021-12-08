@@ -73,7 +73,8 @@ class GAN(tl.LightningModule):
         self,
         latent_dim=100,
         img_shape=(1, 64, 64),
-        lr: float = 0.0002,
+        lrG: float = 0.0002,
+        lrD: float = 0.0001,
         b1: float = 0.5,
         b2: float = 0.999,
         batch_size: int = BATCH_SIZE,
@@ -91,19 +92,48 @@ class GAN(tl.LightningModule):
     def forward(self, z):
         return self.generator(z)
     
-    def adversarial_loss(self, y_hat, y):
+    def adversarial_loss(self, pred, target):
         return F.binary_cross_entropy(y_hat, y)
     
     def training_step(self, batch, batch_idx, optimizer_idx):
-        raise NotImplementedError
-        
+        real_imgs, _ = batch
+        noise = torch.randn(real_imgs.shape[0], self.hparams.latent_dim).type_as(real_imgs)
+
+        #generator step
+        if optimizer_idx == 0:
+            self.fake_images = self(noise)
+            sample = self.fake_images[:4]
+            grid = torchvision.utils.make_grid(sample)
+            self.logger.experiment.add_image("generated_images", grid, 0)
+
+            target = torch.ones(real_imgs.size(0), 1).type_as(real_imgs)
+            lossG = self.adversarial_loss(self.discriminator(self.fake_images), target)
+
+            tqdm_dict = {"lossG": lossG}
+            return {"loss": lossG, "pbar":tqdm_dict , "log":tqdm_dict}
+
+        #discriminator step
+        if optimizer_idx == 1:
+            target_real = torch.ones(real_imgs.size(0), 1).type_as(real_imgs)
+            lossD_fake = self.adversarial_loss(self.discriminator(real_imgs), target_real)
+
+            target_fake = torch.zeros(real_imgs.size(0), 1).type_as(real_imgs)
+            fake_imgs = self(noise).detach()
+            lossD_real = self.adversarial_loss(self.discriminator(fake_imgs), target_fake)
+
+            lossD = (lossD_real + lossD_fake) /2
+            tqdm_dict = {"d_loss": d_loss}
+
+            return {"loss": lossD, "pbar": tqdm_dict, "log": tqdm_dict}
+
     def configure_optimizers(self):
-        lr = self.hparams.lr
+        lrG = self.hparams.lrG
+        lrD = self.hparams.lrD
         b1 = self.hparams.b1
         b2 = self.hparams.b2
         
-        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lrG, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lrD, betas=(b1, b2))
         return (opt_g, opt_d)
     
     def on_epoch_end(self):
