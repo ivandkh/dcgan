@@ -32,7 +32,7 @@ class Discriminator(nn.Module):
         )
         
     def forward(self, img):
-        return self.model(img.view(img.size(0), -1))
+        return self.model(img)
     
     
 class Generator(nn.Module):
